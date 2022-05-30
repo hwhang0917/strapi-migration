@@ -1,4 +1,4 @@
-const S3BaseURL = "https://example.com";
+const CDNBaseURL = "https://example.com";
 
 const pg = require("knex")({
   client: "pg",
@@ -13,29 +13,40 @@ const pg = require("knex")({
 
 async function getOriginalFiles() {
   return new Promise((resolve, reject) => {
-    pg.select("id", "url", "formats")
+    pg.select("id", "url", "formats", "video_thumbnail")
       .from("files")
+      .where("provider", "local")
+      .orWhere("provider", "aws-s3")
       .then((res) => resolve(res))
       .catch((err) => reject(err));
   });
 }
 
+const FORMAT_KEYS = ["large", "small", "medium", "thumbnail"];
+
 function patchOriginalFiles(files) {
-  return files.map(({ id, formats, url }) => {
+  return files.map(({ id, formats, url, video_thumbnail }) => {
     console.log(`Patching fileID: ${id}`);
-    const newUrl = url.replace("/uploads", S3BaseURL);
-    const newFormatArray = Object.values(formats).map(({ url, ...rest }) => {
-      const newFormatUrl = url.replace("/uploads", S3BaseURL);
-      return { ...rest, url: newFormatUrl };
+    const newUrl = url.replace("/uploads", CDNBaseURL);
+    const newVideoThumbnail = video_thumbnail
+      ? video_thumbnail.replace("/uploads", CDNBaseURL)
+      : null;
+    FORMAT_KEYS.forEach((formatKey) => {
+      if (formats[formatKey]) {
+        formats[formatKey].url = formats[formatKey].url.replace(
+          "/uploads",
+          CDNBaseURL
+        );
+      }
     });
 
-    const newFormats = {
-      large: newFormatArray[0],
-      small: newFormatArray[1],
-      medium: newFormatArray[2],
-      thumbnail: newFormatArray[3],
+    return {
+      id,
+      formats,
+      url: newUrl,
+      video_thumbnail: newVideoThumbnail,
+      provider: "strapi-provider-upload-aws-s3-advanced",
     };
-    return { id, formats: newFormats, url: newUrl };
   });
 }
 
@@ -58,5 +69,7 @@ async function init() {
     console.log(`Updating fileID: ${id}`);
     await updateOriginalFile(id, data);
   }
+
+  pg.destroy();
 }
 init();
