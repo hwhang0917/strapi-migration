@@ -31,14 +31,15 @@ function patchOriginalFiles(files) {
     const newVideoThumbnail = video_thumbnail
       ? video_thumbnail.replace("/uploads", CDNBaseURL)
       : null;
-    FORMAT_KEYS.forEach((formatKey) => {
-      if (formats[formatKey]) {
-        formats[formatKey].url = formats[formatKey].url.replace(
-          "/uploads",
-          CDNBaseURL
-        );
-      }
-    });
+    if (formats !== null)
+      FORMAT_KEYS.forEach((formatKey) => {
+        if (formats[formatKey]) {
+          formats[formatKey].url = formats[formatKey].url.replace(
+            "/uploads",
+            CDNBaseURL
+          );
+        }
+      });
 
     return {
       id,
